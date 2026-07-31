@@ -1,0 +1,16 @@
+[Unit]
+Description=Vidu Studio encrypted tunnel to Singapore storage and Gemini egress
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/ssh -NT -i /root/.ssh/vidu_storage_tunnel -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=/root/.ssh/vidu_storage_known_hosts -o ExitOnForwardFailure=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=3 -L 127.0.0.1:3900:127.0.0.1:3900 -L 127.0.0.1:3910:127.0.0.1:3910 vidu-tunnel@SINGAPORE_SERVER_IP
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
+
