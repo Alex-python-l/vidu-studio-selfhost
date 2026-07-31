@@ -152,9 +152,12 @@ async function executeStatement<T>(
   const started = performance.now();
   const translated = translateDateModifier(translateSql(statement.sql));
   const bindings = translatedBindings(statement.sql, statement.values);
-  let result: Awaited<ReturnType<PoolConnection["execute"]>>[0];
+  let result: Awaited<ReturnType<PoolConnection["query"]>>[0];
   try {
-    [result] = await connection.execute(translated, bindings as never[]);
+    // MySQL 8.4 rejects mysql2's binary-protocol number type when a bound
+    // parameter is used by LIMIT. The text protocol still escapes every
+    // binding through mysql2 and accepts the same D1-style SQL consistently.
+    [result] = await connection.query(translated, bindings as never[]);
   } catch (error) {
     const mysqlError = error as {
       code?: string;
@@ -287,3 +290,4 @@ export async function closeMysqlPool() {
   pool = undefined;
   await current.end();
 }
+
