@@ -1,5 +1,57 @@
+export const GEMINI_API_ORIGIN =
+  "https://generativelanguage.googleapis.com";
+
 export const GEMINI_INTERACTIONS_URL =
-  "https://generativelanguage.googleapis.com/v1beta/interactions";
+  `${GEMINI_API_ORIGIN}/v1beta/interactions`;
+
+export function resolveGeminiApiOrigin(configured?: string) {
+  const value = configured?.trim();
+  if (!value) return GEMINI_API_ORIGIN;
+
+  const url = new URL(value);
+  const isOfficialOrigin =
+    url.protocol === "https:" &&
+    url.hostname === "generativelanguage.googleapis.com" &&
+    !url.port;
+  const isLoopbackEgress =
+    url.protocol === "http:" &&
+    url.hostname === "127.0.0.1" &&
+    /^\d{1,5}$/.test(url.port) &&
+    Number(url.port) <= 65_535;
+
+  if (
+    (!isOfficialOrigin && !isLoopbackEgress) ||
+    url.username ||
+    url.password ||
+    url.pathname !== "/" ||
+    url.search ||
+    url.hash
+  ) {
+    throw new Error("Invalid GEMINI_API_BASE_URL.");
+  }
+  return url.origin;
+}
+
+export function resolveGeminiApiUrl(path: string, configured?: string) {
+  if (!path.startsWith("/") || path.startsWith("//")) {
+    throw new Error("Invalid Gemini API path.");
+  }
+  return new URL(path, `${resolveGeminiApiOrigin(configured)}/`).toString();
+}
+
+export function routeGeminiUploadUrl(
+  upstreamUrl: string,
+  configured?: string,
+) {
+  const upstream = new URL(upstreamUrl);
+  if (upstream.origin !== GEMINI_API_ORIGIN) {
+    throw new Error("Invalid Gemini upload origin.");
+  }
+  return resolveGeminiApiUrl(
+    `${upstream.pathname}${upstream.search}`,
+    configured,
+  );
+}
 
 export const GEMINI_VIDEO_ANALYSIS_MODEL = "gemini-3.6-flash";
 
@@ -85,3 +137,4 @@ export function classifyGeminiHttpError(status: number): {
     status: 502,
   };
 }
+
