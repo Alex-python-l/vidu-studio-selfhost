@@ -11,7 +11,8 @@ export function ensureRuntimeSchema() {
 }
 
 async function verifySchema() {
-  const row = await getD1()
+  const d1 = getD1();
+  const row = await d1
     .prepare(`
       SELECT COUNT(*) AS table_count
       FROM information_schema.tables
@@ -26,6 +27,22 @@ async function verifySchema() {
   if (Number(row?.table_count ?? 0) !== 10) {
     throw new Error(
       "MySQL schema is incomplete. Run the deploy/mysql/init migrations before starting the application.",
+    );
+  }
+
+  const providerKeyIdColumn = await d1
+    .prepare(`
+      SELECT CHARACTER_MAXIMUM_LENGTH AS maximum_length
+      FROM information_schema.columns
+      WHERE table_schema = DATABASE()
+        AND table_name = 'provider_key_secrets'
+        AND column_name = 'key_id'
+      LIMIT 1
+    `)
+    .first<{ maximum_length: number }>();
+  if (Number(providerKeyIdColumn?.maximum_length ?? 0) < 40) {
+    throw new Error(
+      "MySQL provider key schema is outdated. Run deploy/mysql/migrations/001-provider-key-id-length.sql.",
     );
   }
 }
