@@ -1,0 +1,60 @@
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: vidu-studio-mysql
+    restart: unless-stopped
+    environment:
+      TZ: UTC
+      MYSQL_DATABASE: vidu_studio
+      MYSQL_USER: vidu_studio
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    command:
+      - --default-time-zone=+00:00
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
+      - --innodb-buffer-pool-size=128M
+      - --max-connections=50
+      - --performance-schema=OFF
+    ports:
+      - 127.0.0.1:3307:3306
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./deploy/mysql/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uvidu_studio -p$$MYSQL_PASSWORD --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+    mem_limit: 420m
+
+  app:
+    image: vidu-studio-app:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: vidu-studio-app
+    restart: unless-stopped
+    network_mode: host
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      HOST: 127.0.0.1
+      PORT: 3100
+      DATABASE_URL: mysql://vidu_studio:${MYSQL_PASSWORD}@127.0.0.1:3307/vidu_studio
+      S3_ENDPOINT: http://127.0.0.1:3900
+      S3_REGION: garage
+      S3_BUCKET: ${GARAGE_DEFAULT_BUCKET}
+      S3_ACCESS_KEY_ID: ${GARAGE_DEFAULT_ACCESS_KEY}
+      S3_SECRET_ACCESS_KEY: ${GARAGE_DEFAULT_SECRET_KEY}
+    depends_on:
+      mysql:
+        condition: service_healthy
+    mem_limit: 640m
+
+volumes:
+  mysql_data:
+    name: vidu-studio-mysql-data
+    external: true
