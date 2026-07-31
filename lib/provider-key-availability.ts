@@ -3,6 +3,7 @@ import type {
   ProviderKeyKind,
   ProviderQuotaSnapshot,
 } from "@/lib/account-contracts";
+import { resolveGeminiApiUrl } from "@/lib/gemini-interactions-contract";
 
 const PROVIDER_CHECKS: Record<
   ProviderKeyKind,
@@ -53,7 +54,14 @@ export async function inspectProviderKey(
   const checkedAt = new Date().toISOString();
 
   try {
-    const response = await fetcher(check.url, {
+    const url =
+      provider === "gemini"
+        ? resolveGeminiApiUrl(
+            "/v1beta/models?pageSize=1",
+            process.env.GEMINI_API_BASE_URL,
+          )
+        : check.url;
+    const response = await fetcher(url, {
       method: "GET",
       headers: check.headers(apiKey),
       cache: "no-store",
@@ -250,3 +258,4 @@ function emptyQuota() {
     queueCount: null,
   };
 }
+

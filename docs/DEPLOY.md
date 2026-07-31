@@ -314,3 +314,15 @@ docker exec -e MYSQL_PWD="$MYSQL_PASSWORD" vidu-studio-mysql \
 - 首次自托管切换：2026-07-30 至 2026-07-31
 
 生产 Secret 的具体值不记录在本文或 Git 中。
+
+## 14. Gemini 地区出口
+
+当应用节点不在 Gemini API 支持地区时，只将 Gemini 请求通过新加坡节点出站：
+
+1. 在新加坡节点安装 `deploy/nginx/gemini-egress.conf.example`，监听 `127.0.0.1:3910`。
+2. 香港节点的现有 SSH 隧道同时转发 `3900`（Garage）与 `3910`（Gemini）。
+3. 香港应用 `.env` 设置 `GEMINI_API_BASE_URL=http://127.0.0.1:3910`。
+4. Gemini API Key 仍只保存在香港应用的加密数据库或 `.env`，不会保存到新加坡节点。
+
+Gemini 出口禁止监听公网地址；Nginx access log 必须关闭，避免记录文件上传路径。
+

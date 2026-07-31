@@ -7,6 +7,9 @@ import {
   GEMINI_VIDEO_ANALYSIS_PROMPT,
   GEMINI_VIDEO_ANALYSIS_MODEL,
   GEMINI_VIDEO_SYSTEM_INSTRUCTION,
+  resolveGeminiApiOrigin,
+  resolveGeminiApiUrl,
+  routeGeminiUploadUrl,
 } from "../lib/gemini-interactions-contract";
 import {
   parseGeminiVideoAnalysisOutput,
@@ -210,6 +213,35 @@ test("uses the official Gemini video interaction contract", () => {
   assert.equal(VIDEO_ANALYSIS_ARRAY_LIMITS.risks, 2);
 });
 
+test("routes Gemini API traffic only through an approved loopback egress", () => {
+  assert.equal(
+    resolveGeminiApiOrigin(),
+    "https://generativelanguage.googleapis.com",
+  );
+  assert.equal(
+    resolveGeminiApiUrl(
+      "/v1beta/models?pageSize=1",
+      "http://127.0.0.1:3910",
+    ),
+    "http://127.0.0.1:3910/v1beta/models?pageSize=1",
+  );
+  assert.equal(
+    routeGeminiUploadUrl(
+      "https://generativelanguage.googleapis.com/upload/v1beta/files?upload_id=safe",
+      "http://127.0.0.1:3910",
+    ),
+    "http://127.0.0.1:3910/upload/v1beta/files?upload_id=safe",
+  );
+  assert.throws(() => resolveGeminiApiOrigin("https://example.com"));
+  assert.throws(() => resolveGeminiApiOrigin("http://0.0.0.0:3910"));
+  assert.throws(() =>
+    routeGeminiUploadUrl(
+      "https://attacker.example/upload/v1beta/files",
+      "http://127.0.0.1:3910",
+    ),
+  );
+});
+
 test("classifies upstream failures without retaining response bodies", () => {
   assert.equal(classifyGeminiHttpError(400).code, "request_contract");
   assert.equal(classifyGeminiHttpError(401).code, "authentication");
@@ -227,11 +259,14 @@ test("runs Gemini video analysis as a persisted synchronous interaction", () => 
 
   assert.doesNotMatch(source, /background: true/);
   assert.match(source, /store: true/);
-  assert.match(source, /GEMINI_FILES_UPLOAD_URL/);
+  assert.match(source, /runtimeGeminiApiUrl\("\/upload\/v1beta\/files"\)/);
   assert.match(source, /X-Goog-Upload-Protocol/);
   assert.match(source, /X-Goog-Upload-Command/);
+  assert.match(source, /duplex: "half"/);
   assert.match(source, /waitForGeminiFile/);
-  assert.match(source, /\$\{GEMINI_FILES_URL\}\/files\//);
+  assert.match(source, /runtimeGeminiApiUrl/);
+  assert.match(source, /GEMINI_API_BASE_URL/);
+  assert.match(source, /routeGeminiUploadUrl/);
   assert.match(source, /uri: file\.uri/);
   assert.match(source, /storedVideoForGemini/);
   assert.doesNotMatch(source, /uri: videoUrl/);
@@ -272,3 +307,4 @@ test("normalizes MOV video MIME for the Gemini Interactions contract", () => {
   assert.match(source, /normalized === "video\/quicktime"\) return "video\/mov"/);
   assert.doesNotMatch(source, /mov: "video\/quicktime"/);
 });
+

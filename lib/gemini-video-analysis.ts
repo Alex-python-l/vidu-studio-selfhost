@@ -6,10 +6,11 @@ import {
 } from "@/lib/provider-keys";
 import {
   classifyGeminiHttpError,
-  GEMINI_INTERACTIONS_URL,
   GEMINI_VIDEO_ANALYSIS_PROMPT,
   GEMINI_VIDEO_ANALYSIS_MODEL,
   GEMINI_VIDEO_SYSTEM_INSTRUCTION,
+  resolveGeminiApiUrl,
+  routeGeminiUploadUrl,
   type GeminiUpstreamErrorCode,
 } from "@/lib/gemini-interactions-contract";
 import {
@@ -26,10 +27,6 @@ const GEMINI_CONTROL_TIMEOUT_MS = 120_000;
 const GEMINI_FILE_UPLOAD_TIMEOUT_MS = 120_000;
 const GEMINI_FILE_PROCESSING_TIMEOUT_MS = 120_000;
 const GEMINI_FILE_POLL_INTERVAL_MS = 2_000;
-const GEMINI_FILES_UPLOAD_URL =
-  "https://generativelanguage.googleapis.com/upload/v1beta/files";
-const GEMINI_FILES_URL =
-  "https://generativelanguage.googleapis.com/v1beta";
 const MAX_VIDEO_BYTES = 50 * 1024 * 1024;
 const GEMINI_API_REVISION = "2026-05-20";
 const VIDEO_MIME_TYPES = new Set([
@@ -199,31 +196,34 @@ export async function startVideoAnalysisWithGemini(
     size: media.size,
     mimeType,
   });
-  const response = await geminiRequest(GEMINI_INTERACTIONS_URL, {
-    method: "POST",
-    headers: await geminiHeaders(true),
-    body: JSON.stringify({
-      model: GEMINI_VIDEO_ANALYSIS_MODEL,
-      store: true,
-      system_instruction: GEMINI_VIDEO_SYSTEM_INSTRUCTION,
-      input: [
-        {
-          type: "video",
-          uri: file.uri,
-          mime_type: file.mimeType,
-        },
-        {
+  const response = await geminiRequest(
+    runtimeGeminiApiUrl("/v1beta/interactions"),
+    {
+      method: "POST",
+      headers: await geminiHeaders(true),
+      body: JSON.stringify({
+        model: GEMINI_VIDEO_ANALYSIS_MODEL,
+        store: true,
+        system_instruction: GEMINI_VIDEO_SYSTEM_INSTRUCTION,
+        input: [
+          {
+            type: "video",
+            uri: file.uri,
+            mime_type: file.mimeType,
+          },
+          {
+            type: "text",
+            text: GEMINI_VIDEO_ANALYSIS_PROMPT,
+          },
+        ],
+        response_format: {
           type: "text",
-          text: GEMINI_VIDEO_ANALYSIS_PROMPT,
+          mime_type: "application/json",
+          schema: VIDEO_ANALYSIS_SCHEMA,
         },
-      ],
-      response_format: {
-        type: "text",
-        mime_type: "application/json",
-        schema: VIDEO_ANALYSIS_SCHEMA,
-      },
-    }),
-  });
+      }),
+    },
+  );
   return videoAnalysisResult(await interactionResponse(response));
 }
 
@@ -232,7 +232,7 @@ export async function pollVideoAnalysisWithGemini(
 ): Promise<GeminiVideoAnalysisResult> {
   const id = validatedInteractionId(interactionId);
   const response = await geminiRequest(
-    `${GEMINI_INTERACTIONS_URL}/${encodeURIComponent(id)}`,
+    runtimeGeminiApiUrl(`/v1beta/interactions/${encodeURIComponent(id)}`),
     { headers: await geminiHeaders(false) },
   );
   return videoAnalysisResult(await interactionResponse(response));
@@ -243,7 +243,7 @@ export async function deleteVideoAnalysisInteraction(
 ) {
   const id = validatedInteractionId(interactionId);
   const response = await geminiRequest(
-    `${GEMINI_INTERACTIONS_URL}/${encodeURIComponent(id)}`,
+    runtimeGeminiApiUrl(`/v1beta/interactions/${encodeURIComponent(id)}`),
     {
       method: "DELETE",
       headers: await geminiHeaders(false),
@@ -293,35 +293,41 @@ async function uploadVideoToGemini(input: {
     );
   }
 
-  const startResponse = await geminiRequest(GEMINI_FILES_UPLOAD_URL, {
-    method: "POST",
-    headers: {
-      ...await geminiFilesHeaders(true),
-      "X-Goog-Upload-Protocol": "resumable",
-      "X-Goog-Upload-Command": "start",
-      "X-Goog-Upload-Header-Content-Length": String(input.size),
-      "X-Goog-Upload-Header-Content-Type": input.mimeType,
+  const startResponse = await geminiRequest(
+    runtimeGeminiApiUrl("/upload/v1beta/files"),
+    {
+      method: "POST",
+      headers: {
+        ...await geminiFilesHeaders(true),
+        "X-Goog-Upload-Protocol": "resumable",
+        "X-Goog-Upload-Command": "start",
+        "X-Goog-Upload-Header-Content-Length": String(input.size),
+        "X-Goog-Upload-Header-Content-Type": input.mimeType,
+      },
+      body: JSON.stringify({
+        file: { display_name: "vidu-source-video-analysis" },
+      }),
     },
-    body: JSON.stringify({
-      file: { display_name: "vidu-source-video-analysis" },
-    }),
-  });
+  );
   const uploadUrl = validatedGeminiUploadUrl(
     startResponse.headers.get("X-Goog-Upload-URL"),
   );
 
+  const uploadInit = {
+    method: "POST",
+    headers: {
+      "Content-Length": String(input.size),
+      "Content-Type": input.mimeType,
+      "X-Goog-Upload-Offset": "0",
+      "X-Goog-Upload-Command": "upload, finalize",
+    },
+    body: input.body,
+    // Required by Node's fetch implementation for a streaming request body.
+    duplex: "half",
+  } satisfies RequestInit & { duplex: "half" };
   const uploadResponse = await geminiRequest(
     uploadUrl,
-    {
-      method: "POST",
-      headers: {
-        "Content-Length": String(input.size),
-        "Content-Type": input.mimeType,
-        "X-Goog-Upload-Offset": "0",
-        "X-Goog-Upload-Command": "upload, finalize",
-      },
-      body: input.body,
-    },
+    uploadInit,
     false,
     GEMINI_FILE_UPLOAD_TIMEOUT_MS,
   );
@@ -366,7 +372,9 @@ async function waitForGeminiFile(
 
     await delay(GEMINI_FILE_POLL_INTERVAL_MS);
     const response = await geminiRequest(
-      `${GEMINI_FILES_URL}/files/${encodeURIComponent(name.slice("files/".length))}`,
+      runtimeGeminiApiUrl(
+        `/v1beta/files/${encodeURIComponent(name.slice("files/".length))}`,
+      ),
       { headers: await geminiFilesHeaders(false) },
     );
     try {
@@ -394,14 +402,31 @@ function validatedGeminiUploadUrl(value: string | null) {
   }
   if (
     url.protocol !== "https:" ||
-    !(
-      url.hostname === "generativelanguage.googleapis.com" ||
-      url.hostname.endsWith(".googleapis.com")
-    )
+    url.hostname !== "generativelanguage.googleapis.com"
   ) {
     throw invalidResponseError("upload_url_host");
   }
-  return url.toString();
+  try {
+    return routeGeminiUploadUrl(
+      url.toString(),
+      process.env.GEMINI_API_BASE_URL,
+    );
+  } catch {
+    throw invalidResponseError("upload_url_route");
+  }
+}
+
+function runtimeGeminiApiUrl(path: string) {
+  try {
+    return resolveGeminiApiUrl(path, process.env.GEMINI_API_BASE_URL);
+  } catch {
+    throw new GeminiVideoAnalysisError(
+      "configuration",
+      "AI 视频分析出口配置无效，请联系管理员。",
+      503,
+      "gemini_api_base_url_invalid",
+    );
+  }
 }
 
 function validatedGeminiFileName(value: unknown) {
@@ -661,3 +686,4 @@ function invalidResponseError(diagnostic?: string) {
     diagnostic,
   );
 }
+
