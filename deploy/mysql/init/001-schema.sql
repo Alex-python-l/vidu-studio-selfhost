@@ -156,7 +156,7 @@ CREATE TABLE IF NOT EXISTS provider_key_settings (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE IF NOT EXISTS provider_key_secrets (
-  key_id CHAR(36) PRIMARY KEY,
+  key_id VARCHAR(64) PRIMARY KEY,
   provider ENUM('vidu', 'gemini') NOT NULL,
   label VARCHAR(80) NOT NULL,
   ciphertext LONGTEXT NOT NULL,
