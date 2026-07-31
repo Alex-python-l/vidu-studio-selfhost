@@ -179,6 +179,10 @@ function fileList(event: ChangeEvent<HTMLInputElement>) {
   return Array.from(event.target.files ?? []);
 }
 
+function fileIdentity(file: File) {
+  return `${file.name}\u0000${file.size}\u0000${file.lastModified}\u0000${file.type}`;
+}
+
 function urlLines(value: string) {
   return value
     .split(/\r?\n/)
@@ -2788,62 +2792,127 @@ export function StudioClient({
                     )}
                   </p>
                   <div className="media-input-grid">
-                    <label
-                      className={`upload-zone ${
-                        replacementImages.length ? "has-preview" : ""
-                      }`}
-                    >
+                    <div className="replacement-image-picker">
                       {replacementImages.length ? (
-                        <>
-                          <ImageFilePreview
-                            file={replacementImages[0]}
-                            label={text(
-                              "第一张替换人物参考图预览",
-                              "First replacement character preview",
-                            )}
-                          />
-                          <span className="upload-preview-copy">
-                            <strong>
-                              {replacementImages.length > 1
-                                ? text(
-                                    `${replacementImages[0].name} 等 ${replacementImages.length} 张`,
-                                    `${replacementImages[0].name} and ${replacementImages.length - 1} more`,
+                        <div
+                          className="replacement-image-list"
+                          aria-label={text(
+                            "已选择的人物参考图",
+                            "Selected character reference images",
+                          )}
+                        >
+                          {replacementImages.map((file, index) => (
+                            <div
+                              className="replacement-image-item"
+                              key={fileIdentity(file)}
+                            >
+                              <ImageFilePreview
+                                file={file}
+                                className="replacement-image-preview"
+                                label={text(
+                                  `第 ${index + 1} 张人物参考图预览`,
+                                  `Character reference image ${index + 1}`,
+                                )}
+                              />
+                              <Button
+                                className="replacement-image-remove"
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                aria-label={text(
+                                  `删除第 ${index + 1} 张人物参考图`,
+                                  `Remove character reference image ${index + 1}`,
+                                )}
+                                title={text("删除这张图片", "Remove this image")}
+                                onClick={() =>
+                                  setReplacementImages((current) =>
+                                    current.filter(
+                                      (candidate) =>
+                                        fileIdentity(candidate) !==
+                                        fileIdentity(file),
+                                    ),
                                   )
-                                : replacementImages[0].name}
-                            </strong>
-                            <span>{text("点击更换", "Click to replace")}</span>
-                          </span>
-                        </>
-                      ) : (
-                        <>
+                                }
+                              >
+                                ×
+                              </Button>
+                              <span className="replacement-image-caption">
+                                <b>{index + 1}</b>
+                                <span title={file.name}>{file.name}</span>
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : null}
+
+                      {replacementImages.length < 4 ? (
+                        <label
+                          className={`upload-zone replacement-image-add ${
+                            replacementImages.length ? "" : "is-empty"
+                          }`}
+                        >
                           <CloudUpload size={24} color="currentColor" />
-                          <strong>{text("选择人物图片", "Choose character images")}</strong>
+                          <strong>
+                            {replacementImages.length
+                              ? text("继续添加图片", "Add more images")
+                              : text("选择人物图片", "Choose character images")}
+                          </strong>
                           <span>
-                            {text(
-                              "可多选，JPG · PNG · WebP · 每张最大 50MB",
-                              "Multiple allowed · JPG · PNG · WebP · Up to 50MB each",
-                            )}
+                            {replacementImages.length
+                              ? text(
+                                  `已选择 ${replacementImages.length}/4 张，可继续单张或多张添加`,
+                                  `${replacementImages.length}/4 selected · Add one or several more`,
+                                )
+                              : text(
+                                  "支持单张或多张选择，JPG · PNG · WebP · 每张最大 50MB",
+                                  "Choose one or several · JPG · PNG · WebP · Up to 50MB each",
+                                )}
                           </span>
-                        </>
+                          <input
+                            type="file"
+                            multiple
+                            accept="image/jpeg,image/png,image/webp"
+                            onChange={(event) => {
+                              const selectedImages = fileList(event);
+                              event.currentTarget.value = "";
+                              const existingFiles = new Set(
+                                replacementImages.map(fileIdentity),
+                              );
+                              const newImages = selectedImages.filter((file) => {
+                                const identity = fileIdentity(file);
+                                if (existingFiles.has(identity)) return false;
+                                existingFiles.add(identity);
+                                return true;
+                              });
+                              const availableSlots = 4 - replacementImages.length;
+                              const acceptedImages = newImages.slice(
+                                0,
+                                availableSlots,
+                              );
+                              setReplacementImages([
+                                ...replacementImages,
+                                ...acceptedImages,
+                              ]);
+                              if (newImages.length > acceptedImages.length) {
+                                setError(
+                                  text(
+                                    "人物参考图最多 4 张，超出的图片没有添加。",
+                                    "Character references support up to 4 images; extra images were not added.",
+                                  ),
+                                );
+                              }
+                            }}
+                          />
+                        </label>
+                      ) : (
+                        <p className="replacement-image-limit" role="status">
+                          {text(
+                            "已添加 4/4 张。删除任意一张后可继续添加。",
+                            "4/4 images added. Remove one to add another.",
+                          )}
+                        </p>
                       )}
-                      <input
-                        type="file"
-                        multiple
-                        accept="image/jpeg,image/png,image/webp"
-                        onChange={(event) => {
-                          const images = fileList(event);
-                          setReplacementImages(images.slice(0, 4));
-                          if (images.length > 4) {
-                            setError(
-                              text(
-                                "人物参考图最多 4 张，已保留前 4 张。",
-                                "Character references support up to 4 images; the first 4 were kept.",
-                              ),
-                            );
-                          }
-                        }}
-                      />
-                    </label>
+                    </div>
                     <details className="media-url-disclosure">
                       <summary>
                         <span>{text("或粘贴图片链接", "Or paste image URLs")}</span>

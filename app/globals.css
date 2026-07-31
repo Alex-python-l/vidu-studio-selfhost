@@ -6075,6 +6075,135 @@ html[data-theme="light"] .tutorial-figure figcaption {
   object-fit: contain;
 }
 
+.replacement-image-picker {
+  display: grid;
+  gap: 10px;
+}
+
+.replacement-image-list {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.replacement-image-item {
+  position: relative;
+  overflow: hidden;
+  min-width: 0;
+  aspect-ratio: 1 / 1;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #080b09;
+}
+
+.replacement-image-preview,
+.replacement-image-preview img {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.replacement-image-preview img {
+  object-fit: contain;
+}
+
+.replacement-image-item::after {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 44%;
+  background: linear-gradient(180deg, transparent, rgb(4 7 6 / 0.92));
+  content: "";
+  pointer-events: none;
+}
+
+.replacement-image-remove {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  z-index: 2;
+  display: grid;
+  width: 28px;
+  height: 28px;
+  min-height: 28px;
+  padding: 0;
+  place-items: center;
+  border: 1px solid rgb(255 255 255 / 0.25);
+  border-radius: 999px;
+  background: rgb(4 7 6 / 0.78);
+  color: #fff;
+  cursor: pointer;
+  font: 500 20px/1 Arial, sans-serif;
+  transition:
+    border-color 150ms ease,
+    background-color 150ms ease,
+    transform 150ms ease;
+}
+
+.replacement-image-remove:hover,
+.replacement-image-remove:focus-visible {
+  border-color: var(--accent);
+  background: rgb(4 7 6 / 0.96);
+  color: var(--accent);
+  transform: scale(1.06);
+}
+
+.replacement-image-caption {
+  position: absolute;
+  right: 9px;
+  bottom: 8px;
+  left: 9px;
+  z-index: 1;
+  display: grid;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+  grid-template-columns: auto minmax(0, 1fr);
+  color: var(--ink);
+  font-size: 10px;
+}
+
+.replacement-image-caption b {
+  display: grid;
+  width: 18px;
+  height: 18px;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #10140c;
+  font-size: 9px;
+}
+
+.replacement-image-caption span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.media-source-card .replacement-image-add {
+  min-height: 104px;
+  aspect-ratio: auto;
+}
+
+.media-source-card .replacement-image-add.is-empty {
+  min-height: 198px;
+  aspect-ratio: 4 / 3;
+}
+
+.replacement-image-limit {
+  display: grid;
+  min-height: 44px;
+  margin: 0;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface-raised) 72%, transparent);
+  color: var(--faint);
+  font-size: 10px;
+  text-align: center;
+}
+
 .media-url-disclosure {
   overflow: hidden;
   border: 1px solid var(--line);
