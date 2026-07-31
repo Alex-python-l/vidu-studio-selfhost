@@ -121,6 +121,7 @@ deploy/mysql/init/       全新 MySQL 初始化 SQL
 deploy/nginx/            Nginx 反向代理示例
 lib/                     认证、数据、S3、Vidu 与 Gemini 服务
 tests/                   渲染、权限、数据和安全回归测试
+drizzle/                 历史 SQLite 迁移夹具，仅供兼容回归测试
 Dockerfile               Node.js 生产镜像
 docker-compose.yml       应用与 MySQL 编排
 ```

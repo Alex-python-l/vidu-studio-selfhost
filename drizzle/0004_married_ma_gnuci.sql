@@ -1,0 +1,1 @@
+ALTER TABLE `invitations` ADD `deleted_at` text;

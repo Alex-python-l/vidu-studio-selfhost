@@ -6,6 +6,7 @@
 - 增加 Dockerfile、Docker Compose、MySQL 初始化 SQL、Garage 深度健康检查和 Nginx 反向代理模板。
 - 修复 HTTPS 反向代理下登录与写操作的同源校验，支持可信 `X-Forwarded-Host` 与 `X-Forwarded-Proto`。
 - 升级 Next.js 至 16.2.12，并固定安全版本的 PostCSS 与 Sharp；生产依赖审计为 0 漏洞。
+- 修复 MySQL 8.4 会话保留语句，管理员恢复和普通登录均可在会话上限清理后正常创建会话。
 - 完成 `nltnpe.cn` 自托管生产切换，保留原有 SSE、消息与 TikTok 接口代理规则。
 - 重写 README、部署手册与路线图，移除对 Sites 部署流程的依赖。
 

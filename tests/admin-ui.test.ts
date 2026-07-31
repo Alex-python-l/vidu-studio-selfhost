@@ -154,6 +154,12 @@ test("admin access recovery is temporary, allowlisted, one-time, and audited", (
   assert.match(accountDataSource, /maxUses: 1/);
 });
 
+test("session retention uses a MySQL-compatible derived table", () => {
+  assert.match(accountDataSource, /SELECT retained_sessions\.id/);
+  assert.match(accountDataSource, /\) AS retained_sessions/);
+  assert.match(accountDataSource, /LIMIT \$\{maxActiveSessions - 1\}/);
+});
+
 test("invite bridge removes the raw token from the address bar flow", () => {
   assert.match(inviteSource, /sessionStorage\.setItem/);
   assert.match(inviteSource, /window\.location\.replace\("\/login\?invite=stored"\)/);

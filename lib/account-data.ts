@@ -679,17 +679,20 @@ export async function createAppSession(input: {
           AND (
             datetime(expires_at) <= CURRENT_TIMESTAMP
             OR id NOT IN (
-              SELECT id
-              FROM app_sessions
-              WHERE user_id = ?
-                AND revoked_at IS NULL
-                AND datetime(expires_at) > CURRENT_TIMESTAMP
-              ORDER BY created_at DESC, id DESC
-              LIMIT ?
+              SELECT retained_sessions.id
+              FROM (
+                SELECT id
+                FROM app_sessions
+                WHERE user_id = ?
+                  AND revoked_at IS NULL
+                  AND datetime(expires_at) > CURRENT_TIMESTAMP
+                ORDER BY created_at DESC, id DESC
+                LIMIT ${maxActiveSessions - 1}
+              ) AS retained_sessions
             )
           )
       `)
-      .bind(input.userId, input.userId, maxActiveSessions - 1),
+      .bind(input.userId, input.userId),
     d1
       .prepare(`
         INSERT INTO app_sessions (id, user_id, token_digest, expires_at)

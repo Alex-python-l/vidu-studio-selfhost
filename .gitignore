@@ -44,8 +44,8 @@ next-env.d.ts
 /outputs/
 /work/
 /worker/
-/drizzle/
 /drizzle.config.ts
+/drizzle/meta/
 /build/
 /examples/
 
