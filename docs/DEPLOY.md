@@ -236,6 +236,15 @@ docker compose --env-file .env ps
 7. 先验证 `127.0.0.1:3100`，再 reload Nginx。
 8. 运行完整公网深度检查。
 
+已有数据卷需要先执行尚未应用的前向迁移。例如，修复管理员录入服务 Key
+的内部编号长度：
+
+```bash
+docker compose --env-file .env exec -T mysql sh -lc \
+  'MYSQL_PWD="$MYSQL_PASSWORD" mysql -uvidu_studio vidu_studio' \
+  < deploy/mysql/migrations/001-provider-key-id-length.sql
+```
+
 如果只更新应用代码：
 
 ```bash
