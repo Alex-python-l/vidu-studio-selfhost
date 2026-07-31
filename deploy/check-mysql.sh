@@ -21,4 +21,9 @@ docker exec \
     SELECT CONCAT("admin=", email, " role=", role, " status=", status)
       FROM users
       WHERE email = "k994772392@qq.com";
+    SELECT CONCAT("provider_key_id_length=", CHARACTER_MAXIMUM_LENGTH)
+      FROM information_schema.columns
+      WHERE table_schema = DATABASE()
+        AND table_name = "provider_key_secrets"
+        AND column_name = "key_id";
   '
