@@ -991,6 +991,8 @@ export async function updateAdminUser(input: {
   if (!assignments.length) throw new AppError("没有可更新的用户字段。", 400);
 
   const d1 = getD1();
+  // MySQL rejects a direct users-to-users subquery in an UPDATE with error 1093.
+  // The derived-table snapshot keeps the last-active-admin guard in one statement.
   const results = await d1.batch([
     d1
       .prepare(`
@@ -1006,11 +1008,14 @@ export async function updateAdminUser(input: {
             )
             OR EXISTS (
               SELECT 1
-              FROM users AS other
-              WHERE other.id <> users.id
-                AND other.role = 'admin'
-                AND other.status = 'active'
-                AND other.deleted_at IS NULL
+              FROM (
+                SELECT id
+                FROM users
+                WHERE role = 'admin'
+                  AND status = 'active'
+                  AND deleted_at IS NULL
+              ) AS active_admins
+              WHERE active_admins.id <> users.id
             )
           )
       `)
@@ -1067,6 +1072,7 @@ export async function deleteAdminUser(input: {
   }
 
   const d1 = getD1();
+  // Keep the last-active-admin guard atomic while remaining valid on MySQL.
   const results = await d1.batch([
     d1
       .prepare(`
@@ -1080,11 +1086,14 @@ export async function deleteAdminUser(input: {
             role <> 'admin'
             OR EXISTS (
               SELECT 1
-              FROM users AS other
-              WHERE other.id <> users.id
-                AND other.role = 'admin'
-                AND other.status = 'active'
-                AND other.deleted_at IS NULL
+              FROM (
+                SELECT id
+                FROM users
+                WHERE role = 'admin'
+                  AND status = 'active'
+                  AND deleted_at IS NULL
+              ) AS active_admins
+              WHERE active_admins.id <> users.id
             )
           )
       `)
@@ -1856,12 +1865,21 @@ export const listAdminAuditEntries = listAdminAudit;
 
 export async function bootstrapAdminByEmail(email: string) {
   await ensureRuntimeSchema();
+  // Use a derived snapshot because MySQL cannot read users directly while
+  // updating users in the same statement.
   const result = await getD1()
     .prepare(`
       UPDATE users
       SET role = 'admin', updated_at = CURRENT_TIMESTAMP
       WHERE email = ?
-        AND NOT EXISTS (SELECT 1 FROM users WHERE role = 'admin')
+        AND NOT EXISTS (
+          SELECT 1
+          FROM (
+            SELECT id
+            FROM users
+            WHERE role = 'admin'
+          ) AS existing_admins
+        )
     `)
     .bind(normalizeEmail(email))
     .run();
