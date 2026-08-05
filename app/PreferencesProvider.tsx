@@ -24,7 +24,16 @@ type PreferencesContextValue = {
   setTheme: (theme: AppTheme) => void;
 };
 
+type LanguageContextValue = Pick<
+  PreferencesContextValue,
+  "language" | "setLanguage"
+>;
+
+type ThemeContextValue = Pick<PreferencesContextValue, "theme" | "setTheme">;
+
 const PreferencesContext = createContext<PreferencesContextValue | null>(null);
+const LanguageContext = createContext<LanguageContextValue | null>(null);
+const ThemeContext = createContext<ThemeContextValue | null>(null);
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 
 function writePreference(name: string, value: string) {
@@ -60,12 +69,42 @@ export function PreferencesProvider({
     () => ({ language, theme, setLanguage, setTheme }),
     [language, setLanguage, setTheme, theme],
   );
+  const languageValue = useMemo(
+    () => ({ language, setLanguage }),
+    [language, setLanguage],
+  );
+  const themeValue = useMemo(
+    () => ({ theme, setTheme }),
+    [setTheme, theme],
+  );
 
   return (
-    <PreferencesContext.Provider value={value}>
-      {children}
-    </PreferencesContext.Provider>
+    <LanguageContext.Provider value={languageValue}>
+      <ThemeContext.Provider value={themeValue}>
+        <PreferencesContext.Provider value={value}>
+          {children}
+        </PreferencesContext.Provider>
+      </ThemeContext.Provider>
+    </LanguageContext.Provider>
   );
+}
+
+export function useLanguagePreference() {
+  const context = useContext(LanguageContext);
+  if (!context) {
+    throw new Error(
+      "useLanguagePreference must be used inside PreferencesProvider.",
+    );
+  }
+  return context;
+}
+
+export function useThemePreference() {
+  const context = useContext(ThemeContext);
+  if (!context) {
+    throw new Error("useThemePreference must be used inside PreferencesProvider.");
+  }
+  return context;
 }
 
 export function usePreferences() {
@@ -81,7 +120,8 @@ export function PreferencesControls({
 }: {
   compact?: boolean;
 }) {
-  const { language, setLanguage, setTheme, theme } = usePreferences();
+  const { language, setLanguage } = useLanguagePreference();
+  const { setTheme, theme } = useThemePreference();
   const isChinese = language === "zh";
   const isDark = theme === "dark";
 

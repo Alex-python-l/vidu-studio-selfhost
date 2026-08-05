@@ -22,6 +22,7 @@ interface SoftAuroraProps {
   colorSpeed?: number;
   enableMouseInteraction?: boolean;
   mouseInfluence?: number;
+  maxFps?: number;
 }
 
 function hexToVec3(hex: string): [number, number, number] {
@@ -181,7 +182,8 @@ export default function SoftAurora({
   layerOffset = 0,
   colorSpeed = 1.0,
   enableMouseInteraction = true,
-  mouseInfluence = 0.25
+  mouseInfluence = 0.25,
+  maxFps = 30,
 }: SoftAuroraProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -291,10 +293,14 @@ export default function SoftAurora({
 
     let animationFrameId = 0;
     let isRunning = false;
+    let lastRenderTime = Number.NEGATIVE_INFINITY;
+    const minimumFrameInterval = 1000 / Math.max(1, maxFps);
 
     function update(time: number) {
       if (!isRunning) return;
       animationFrameId = requestAnimationFrame(update);
+      if (time - lastRenderTime < minimumFrameInterval) return;
+      lastRenderTime = time;
       program.uniforms.uTime.value = time * 0.001;
 
       if (enableMouseInteraction) {
@@ -362,6 +368,7 @@ export default function SoftAurora({
     layerOffset,
     colorSpeed,
     enableMouseInteraction,
+    maxFps,
     mouseInfluence,
   ]);
 

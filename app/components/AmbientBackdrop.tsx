@@ -27,6 +27,7 @@ export function AmbientBackdrop({
         layerOffset={0.62}
         colorSpeed={0.34}
         enableMouseInteraction={false}
+        maxFps={30}
       />
       <span className="ambient-halo is-primary" />
       <span className="ambient-halo is-secondary" />
