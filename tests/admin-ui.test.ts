@@ -290,6 +290,15 @@ test("admin and auth layouts include mobile and reduced-motion safeguards", () =
   assert.doesNotMatch(styles, /\.credit-top-up-feedback/);
 });
 
+test("admin user mutations keep their safeguards compatible with MySQL", () => {
+  assert.equal(
+    (accountDataSource.match(/\) AS active_admins/g) ?? []).length,
+    2,
+  );
+  assert.match(accountDataSource, /\) AS existing_admins/);
+  assert.doesNotMatch(accountDataSource, /FROM users AS other/);
+});
+
 test("registration requires a password and users can manage their own account", () => {
   assert.match(loginSource, /registrationPasswordConfirmation/);
   assert.match(loginSource, /password: registrationPassword/);
