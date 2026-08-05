@@ -6116,6 +6116,8 @@ html[data-theme="light"] .tutorial-figure figcaption {
   background: linear-gradient(180deg, transparent, rgb(4 7 6 / 0.92));
   content: "";
   pointer-events: none;
+  contain: strict;
+  transform: translateZ(0);
 }
 
 .replacement-image-remove {

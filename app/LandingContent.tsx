@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Play, Video } from "reicon-react";
 import {
   PreferencesControls,
-  usePreferences,
+  useLanguagePreference,
 } from "@/app/PreferencesProvider";
 import { AmbientBackdrop } from "@/app/components/AmbientBackdrop";
 import BorderGlow from "@/app/components/BorderGlow";
@@ -135,7 +135,7 @@ export function LandingContent({
   replacementHref: string;
   motionHref: string;
 }) {
-  const { language } = usePreferences();
+  const { language } = useLanguagePreference();
   const copy = COPY[language];
 
   return (

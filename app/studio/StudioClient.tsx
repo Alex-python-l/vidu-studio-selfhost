@@ -17,6 +17,7 @@ import {
   type ChangeEvent,
   type CSSProperties,
   type FormEvent,
+  memo,
   useCallback,
   useEffect,
   useId,
@@ -26,7 +27,7 @@ import {
 } from "react";
 import {
   PreferencesControls,
-  usePreferences,
+  useLanguagePreference,
 } from "@/app/PreferencesProvider";
 import { AmbientBackdrop } from "@/app/components/AmbientBackdrop";
 import BorderGlow from "@/app/components/BorderGlow";
@@ -75,6 +76,10 @@ import {
   localeText,
   VIDEO_ANALYSIS_COOKIE,
 } from "@/lib/preferences";
+import {
+  formatStudioTaskDate,
+  taskMediaThumbnailUrl,
+} from "@/lib/media-presentation";
 import {
   reserveMotionCredits,
   reserveReferenceCredits,
@@ -239,7 +244,7 @@ function ImageFilePreview({
   className = "upload-preview",
   label,
 }: FilePreviewProps) {
-  const { language } = usePreferences();
+  const { language } = useLanguagePreference();
   const resolvedLabel =
     label ??
     localeText(
@@ -275,7 +280,7 @@ function VideoFilePreview({
   onDuration,
   onAspectRatio,
 }: FilePreviewProps) {
-  const { language } = usePreferences();
+  const { language } = useLanguagePreference();
   const resolvedLabel =
     label ??
     localeText(
@@ -340,7 +345,7 @@ function DurationSlider({
   hint,
   onChange,
 }: DurationSliderProps) {
-  const { language } = usePreferences();
+  const { language } = useLanguagePreference();
   const seconds = localeText(language, "秒", "sec");
   const progress = ((value - min) / (max - min)) * 100;
 
@@ -737,14 +742,15 @@ async function validateReferenceVideoFiles(
 
 function SourceMediaDock({
   images,
+  language,
   videos,
   overlay = false,
 }: {
   images: string[];
+  language: AppLanguage;
   videos: string[];
   overlay?: boolean;
 }) {
-  const { language } = usePreferences();
   const text = (chinese: string, english: string) =>
     localeText(language, chinese, english);
   const [isOpen, setIsOpen] = useState(false);
@@ -805,7 +811,12 @@ function SourceMediaDock({
                 <>
                   {/* Dynamic task media can come from approved HTTPS hosts. */}
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={media.url} alt="" loading="lazy" />
+                  <img
+                    src={taskMediaThumbnailUrl(media.url)}
+                    alt=""
+                    loading="lazy"
+                    decoding="async"
+                  />
                 </>
               ) : (
                 <Video size={14} color="currentColor" />
@@ -852,9 +863,10 @@ function SourceMediaDock({
                 {/* Dynamic user media can come from arbitrary approved HTTPS hosts. */}
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={url}
+                  src={taskMediaThumbnailUrl(url)}
                   alt={`${text("任务参考图片", "Task reference image")} ${index + 1}`}
                   loading="lazy"
+                  decoding="async"
                 />
                 <span>{text("参考图片", "Reference image")}</span>
               </a>
@@ -867,7 +879,7 @@ function SourceMediaDock({
                 aria-label={`${text("查看参考视频", "View reference video")} ${index + 1}`}
                 key={`video-${url}-${index}`}
               >
-                <video src={url} preload="metadata" muted playsInline />
+                <video src={url} preload="none" muted playsInline />
                 <span>
                   <Video size={13} color="currentColor" />
                   {text("参考视频", "Reference video")}
@@ -884,8 +896,13 @@ function SourceMediaDock({
   );
 }
 
-function TaskCard({ task }: { task: StudioTask }) {
-  const { language } = usePreferences();
+const TaskCard = memo(function TaskCard({
+  language,
+  task,
+}: {
+  language: AppLanguage;
+  task: StudioTask;
+}) {
   const text = (chinese: string, english: string) =>
     localeText(language, chinese, english);
   const kindLabel = {
@@ -996,6 +1013,7 @@ function TaskCard({ task }: { task: StudioTask }) {
         {!task.outputUrl ? (
           <SourceMediaDock
             images={task.inputImages}
+            language={language}
             videos={task.inputVideos}
           />
         ) : null}
@@ -1005,7 +1023,7 @@ function TaskCard({ task }: { task: StudioTask }) {
             <video
               className="task-result-video"
               controls
-              preload="metadata"
+              preload="none"
               poster={task.coverUrl ?? undefined}
               src={task.outputUrl}
             >
@@ -1016,6 +1034,7 @@ function TaskCard({ task }: { task: StudioTask }) {
             </video>
             <SourceMediaDock
               images={task.inputImages}
+              language={language}
               videos={task.inputVideos}
               overlay
             />
@@ -1039,9 +1058,7 @@ function TaskCard({ task }: { task: StudioTask }) {
       </CardPanel>
       <CardFooter className="task-card-foot">
         <span>
-          {new Date(task.createdAt).toLocaleString(
-            language === "zh" ? "zh-CN" : "en-US",
-          )}
+          {formatStudioTaskDate(task.createdAt, language)}
         </span>
         <strong>{task.chargedCredits} credits</strong>
       </CardFooter>
@@ -1067,7 +1084,7 @@ function TaskCard({ task }: { task: StudioTask }) {
   ) : (
     card
   );
-}
+});
 
 
 function PasswordSetupReminder({
@@ -1077,7 +1094,7 @@ function PasswordSetupReminder({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const { language } = usePreferences();
+  const { language } = useLanguagePreference();
   const text = (chinese: string, english: string) =>
     localeText(language, chinese, english);
 
@@ -1114,7 +1131,7 @@ export function StudioClient({
   initialVideoAnalysisEnabled,
   canAccessAdmin,
 }: Props) {
-  const { language } = usePreferences();
+  const { language } = useLanguagePreference();
   const text = useCallback(
     (chinese: string, english: string) =>
       localeText(language, chinese, english),
@@ -3616,7 +3633,7 @@ export function StudioClient({
               <CardPanel className="queue-list">
                 {dashboard.tasks.length ? (
                   dashboard.tasks.map((task) => (
-                    <TaskCard task={task} key={task.id} />
+                    <TaskCard language={language} task={task} key={task.id} />
                   ))
                 ) : (
                   <div className="queue-empty">
